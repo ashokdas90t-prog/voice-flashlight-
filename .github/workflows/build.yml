@@ -1,40 +1,27 @@
-name: Build Voice Flashlight APK
+name: Build Voice Flashlight
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-
       - name: Create Android project
+        shell: bash
         run: |
-
+          set -e
           mkdir -p app/src/main/java/com/example/voiceflashlight
           mkdir -p app/src/main/res/values
 
           cat > settings.gradle.kts <<'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement {
               repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+              repositories { google(); mavenCentral() }
           }
-
           rootProject.name = "VoiceFlashlight"
           include(":app")
           EOF
@@ -57,76 +44,51 @@ jobs:
               id("com.android.application")
               id("org.jetbrains.kotlin.android")
           }
-
           android {
               namespace = "com.example.voiceflashlight"
               compileSdk = 35
-
               defaultConfig {
                   applicationId = "com.example.voiceflashlight"
                   minSdk = 23
                   targetSdk = 35
-                  versionCode = 1
-                  versionName = "1.0"
+                  versionCode = 3
+                  versionName = "3.0"
               }
-
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
                   targetCompatibility = JavaVersion.VERSION_17
               }
-
-              kotlinOptions {
-                  jvmTarget = "17"
-              }
+              kotlinOptions { jvmTarget = "17" }
           }
           EOF
 
           cat > app/src/main/res/values/styles.xml <<'EOF'
           <resources>
-              <style name="AppTheme"
-                  parent="android:style/Theme.Material.Light.NoActionBar">
+              <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
                   <item name="android:fontFamily">sans</item>
-                  <item name="android:colorAccent">#333333</item>
+                  <item name="android:windowLightStatusBar">true</item>
+                  <item name="android:statusBarColor">#808080</item>
               </style>
           </resources>
           EOF
 
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
               <uses-permission android:name="android.permission.CAMERA" />
               <uses-permission android:name="android.permission.RECORD_AUDIO" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
-
-              <uses-feature
-                  android:name="android.hardware.camera.flash"
-                  android:required="false" />
-
-              <application
-                  android:theme="@style/AppTheme"
-                  android:label="Voice Flashlight"
-                  android:allowBackup="false"
-                  android:supportsRtl="true">
-
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true">
-
+              <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+              <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
+              <application android:theme="@style/AppTheme" android:label="Voice Flashlight" android:allowBackup="false">
+                  <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
                           <category android:name="android.intent.category.LAUNCHER" />
                       </intent-filter>
-
                   </activity>
-
-                  <service
-                      android:name=".VoiceService"
-                      android:exported="false"
-                      android:foregroundServiceType="microphone" />
-
+                  <service android:name=".VoiceService" android:exported="false" android:foregroundServiceType="microphone" />
               </application>
-
           </manifest>
           EOF
 
@@ -145,83 +107,57 @@ jobs:
           import android.widget.TextView
 
           class MainActivity : Activity() {
-
               private val requestCode = 100
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   super.onCreate(savedInstanceState)
 
-                  val title = TextView(this)
-                  title.text = "Voice Flashlight"
-                  title.textSize = 26f
-                  title.gravity = Gravity.CENTER
-                  title.setPadding(10, 40, 10, 20)
+                  val title = TextView(this).apply {
+                      text = "Voice Flashlight"
+                      textSize = 28f
+                      gravity = Gravity.CENTER
+                      setPadding(10, 35, 10, 20)
+                  }
 
-                  val info = TextView(this)
-                  info.text =
-                      "Voice control for flashlight\\n\\n" +
-                      "Say:\\n" +
-                      "\"flashlight on\"\\n" +
-                      "\"flashlight off\""
-                  info.textSize = 18f
-                  info.setPadding(20, 20, 20, 30)
+                  val info = TextView(this).apply {
+                      text = "Voice control\n\nSay:\n“ফ্ল্যাশ লাইট অন”\n“ফ্ল্যাশ লাইট অফ”\n\nor\n“flashlight on” / “flashlight off”"
+                      textSize = 18f
+                      setPadding(20, 10, 20, 25)
+                  }
 
-                  val startButton = Button(this)
-                  startButton.text = "START VOICE CONTROL"
+                  val start = Button(this).apply { text = "START VOICE CONTROL" }
+                  val stop = Button(this).apply { text = "STOP VOICE CONTROL" }
 
-                  val stopButton = Button(this)
-                  stopButton.text = "STOP VOICE CONTROL"
-
-                  val layout = LinearLayout(this)
-                  layout.orientation = LinearLayout.VERTICAL
-                  layout.setPadding(25, 25, 25, 25)
-
-                  layout.addView(title)
-                  layout.addView(info)
-                  layout.addView(startButton)
-                  layout.addView(stopButton)
+                  val layout = LinearLayout(this).apply {
+                      orientation = LinearLayout.VERTICAL
+                      setPadding(20, 20, 20, 20)
+                      addView(title)
+                      addView(info)
+                      addView(start)
+                      addView(stop)
+                  }
 
                   setContentView(layout)
 
-                  startButton.setOnClickListener {
-                      requestPermissionsIfNeeded()
-                  }
-
-                  stopButton.setOnClickListener {
-                      stopService(
-                          Intent(this, VoiceService::class.java)
-                      )
-                  }
+                  start.setOnClickListener { requestPermissionsAndStart() }
+                  stop.setOnClickListener { stopService(Intent(this, VoiceService::class.java)) }
               }
 
-              private fun requestPermissionsIfNeeded() {
-
+              private fun requestPermissionsAndStart() {
                   val permissions = ArrayList<String>()
 
-                  if (
-                      Build.VERSION.SDK_INT >= 23 &&
-                      checkSelfPermission(Manifest.permission.RECORD_AUDIO)
-                          != PackageManager.PERMISSION_GRANTED
-                  ) {
+                  if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED)
                       permissions.add(Manifest.permission.RECORD_AUDIO)
-                  }
 
-                  if (
-                      Build.VERSION.SDK_INT >= 23 &&
-                      checkSelfPermission(Manifest.permission.CAMERA)
-                          != PackageManager.PERMISSION_GRANTED
-                  ) {
+                  if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED)
                       permissions.add(Manifest.permission.CAMERA)
-                  }
 
-                  if (permissions.isNotEmpty()) {
-                      requestPermissions(
-                          permissions.toTypedArray(),
-                          requestCode
-                      )
-                  } else {
-                      startVoiceService()
-                  }
+                  if (Build.VERSION.SDK_INT >= 33 &&
+                      checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+                      permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+
+                  if (permissions.isEmpty()) startVoiceService()
+                  else requestPermissions(permissions.toTypedArray(), requestCode)
               }
 
               override fun onRequestPermissionsResult(
@@ -229,38 +165,17 @@ jobs:
                   permissions: Array<out String>,
                   grantResults: IntArray
               ) {
-                  super.onRequestPermissionsResult(
-                      requestCode,
-                      permissions,
-                      grantResults
-                  )
-
-                  if (requestCode == this.requestCode) {
-
-                      var granted = true
-
-                      for (result in grantResults) {
-                          if (result != PackageManager.PERMISSION_GRANTED) {
-                              granted = false
-                          }
-                      }
-
-                      if (granted) {
-                          startVoiceService()
-                      }
+                  super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+                  if (requestCode == this.requestCode &&
+                      grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                      startVoiceService()
                   }
               }
 
               private fun startVoiceService() {
-
-                  val intent =
-                      Intent(this, VoiceService::class.java)
-
-                  if (Build.VERSION.SDK_INT >= 26) {
-                      startForegroundService(intent)
-                  } else {
-                      startService(intent)
-                  }
+                  val intent = Intent(this, VoiceService::class.java)
+                  if (Build.VERSION.SDK_INT >= 26) startForegroundService(intent)
+                  else startService(intent)
               }
           }
           EOF
@@ -268,256 +183,163 @@ jobs:
           cat > app/src/main/java/com/example/voiceflashlight/VoiceService.kt <<'EOF'
           package com.example.voiceflashlight
 
-          import android.app.Notification
-          import android.app.NotificationChannel
-          import android.app.NotificationManager
-          import android.app.Service
+          import android.app.*
           import android.content.Intent
           import android.hardware.camera2.CameraCharacteristics
           import android.hardware.camera2.CameraManager
-          import android.os.Build
-          import android.os.Bundle
-          import android.os.Handler
-          import android.os.IBinder
-          import android.os.Looper
+          import android.os.*
           import android.speech.RecognitionListener
           import android.speech.RecognizerIntent
           import android.speech.SpeechRecognizer
           import java.util.Locale
 
           class VoiceService : Service() {
-
               private lateinit var speech: SpeechRecognizer
               private lateinit var camera: CameraManager
               private var cameraId: String? = null
+              private val handler = Handler(Looper.getMainLooper())
 
               override fun onCreate() {
                   super.onCreate()
-
                   createNotification()
 
-                  camera =
-                      getSystemService(CAMERA_SERVICE) as CameraManager
-
+                  camera = getSystemService(CAMERA_SERVICE) as CameraManager
                   try {
-                      cameraId =
-                          camera.cameraIdList.firstOrNull { id ->
-
-                              camera.getCameraCharacteristics(id)
-                                  .get(
-                                      CameraCharacteristics.FLASH_INFO_AVAILABLE
-                                  ) == true
-                          }
-                  } catch (_: Exception) {
-                  }
-
-                  speech =
-                      SpeechRecognizer.createSpeechRecognizer(this)
-
-                  speech.setRecognitionListener(
-                      object : RecognitionListener {
-
-                          override fun onResults(results: Bundle) {
-
-                              val text =
-                                  results.getStringArrayList(
-                                      SpeechRecognizer.RESULTS_RECOGNITION
-                                  )
-                                      ?.joinToString(" ")
-                                      ?.lowercase(Locale.getDefault())
-                                      ?: ""
-
-                              if (
-                                  text.contains("flashlight on") ||
-                                  text.contains("flash light on") ||
-                                  text.contains("torch on") ||
-                                  text.contains("ফ্ল্যাশলাইট অন") ||
-                                  text.contains("টর্চ অন") ||
-                                  text.contains("टॉर्च ऑन") ||
-                                  text.contains("टॉर्च ऑन करो")
-                              ) {
-                                  setFlash(true)
-                              }
-
-                              if (
-                                  text.contains("flashlight off") ||
-                                  text.contains("flash light off") ||
-                                  text.contains("torch off") ||
-                                  text.contains("ফ্ল্যাশলাইট অফ") ||
-                                  text.contains("টর্চ অফ") ||
-                                  text.contains("टॉर्च ऑफ") ||
-                                  text.contains("टॉर्च ऑफ करो")
-                              ) {
-                                  setFlash(false)
-                              }
-
-                              listenAgain()
-                          }
-
-                          override fun onError(error: Int) {
-                              Handler(Looper.getMainLooper())
-                                  .postDelayed(
-                                      {
-                                          listenAgain()
-                                      },
-                                      700
-                                  )
-                          }
-
-                          override fun onReadyForSpeech(
-                              params: Bundle?
-                          ) {}
-
-                          override fun onBeginningOfSpeech() {}
-
-                          override fun onRmsChanged(
-                              rmsdB: Float
-                          ) {}
-
-                          override fun onBufferReceived(
-                              buffer: ByteArray?
-                          ) {}
-
-                          override fun onEndOfSpeech() {}
-
-                          override fun onPartialResults(
-                              partialResults: Bundle?
-                          ) {}
-
-                          override fun onEvent(
-                              eventType: Int,
-                              params: Bundle?
-                          ) {}
+                      cameraId = camera.cameraIdList.firstOrNull { id ->
+                          camera.getCameraCharacteristics(id)
+                              .get(CameraCharacteristics.FLASH_INFO_AVAILABLE) == true
                       }
-                  )
+                  } catch (_: Exception) {}
 
+                  if (!SpeechRecognizer.isRecognitionAvailable(this)) return
+
+                  speech = SpeechRecognizer.createSpeechRecognizer(this)
+                  speech.setRecognitionListener(object : RecognitionListener {
+                      override fun onResults(results: Bundle) {
+                          val text = results
+                              .getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                              ?.joinToString(" ")
+                              ?.lowercase(Locale.getDefault()) ?: ""
+                          handleCommand(text)
+                          listenAgain()
+                      }
+
+                      override fun onError(error: Int) {
+                          handler.postDelayed({ listenAgain() }, 500)
+                      }
+
+                      override fun onReadyForSpeech(params: Bundle?) {}
+                      override fun onBeginningOfSpeech() {}
+                      override fun onRmsChanged(rmsdB: Float) {}
+                      override fun onBufferReceived(buffer: ByteArray?) {}
+                      override fun onEndOfSpeech() {}
+                      override fun onPartialResults(partialResults: Bundle?) {}
+                      override fun onEvent(eventType: Int, params: Bundle?) {}
+                  })
                   listenAgain()
               }
 
+              private fun handleCommand(text: String) {
+                  val on =
+                      (text.contains("ফ্ল্যাশ") &&
+                       (text.contains("অন") || text.contains("চালু") || text.contains("জ্বাল"))) ||
+                      text.contains("flashlight on") ||
+                      text.contains("flash light on") ||
+                      text.contains("torch on") ||
+                      text.contains("ফ্লাশ লাইট অন") ||
+                      text.contains("ফ্ল্যাশ লাইট অন") ||
+                      text.contains("টর্চ অন")
+
+                  val off =
+                      (text.contains("ফ্ল্যাশ") &&
+                       (text.contains("অফ") || text.contains("বন্ধ") || text.contains("নিভ"))) ||
+                      text.contains("flashlight off") ||
+                      text.contains("flash light off") ||
+                      text.contains("torch off") ||
+                      text.contains("ফ্লাশ লাইট অফ") ||
+                      text.contains("ফ্ল্যাশ লাইট অফ") ||
+                      text.contains("টর্চ অফ")
+
+                  when {
+                      on -> setFlash(true)
+                      off -> setFlash(false)
+                  }
+              }
+
               private fun listenAgain() {
-
+                  if (!::speech.isInitialized) return
                   try {
-
-                      val intent =
-                          Intent(
-                              RecognizerIntent.ACTION_RECOGNIZE_SPEECH
-                          )
-
-                      intent.putExtra(
-                          RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                          RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-                      )
-
-                      intent.putExtra(
-                          RecognizerIntent.EXTRA_LANGUAGE,
-                          Locale.getDefault().toLanguageTag()
-                      )
-
-                      intent.putExtra(
-                          RecognizerIntent.EXTRA_PARTIAL_RESULTS,
-                          false
-                      )
-
+                      val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                          putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                              RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                          putExtra(RecognizerIntent.EXTRA_LANGUAGE, "bn-BD")
+                          putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "bn-BD")
+                          putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+                          putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+                      }
                       speech.startListening(intent)
-
                   } catch (_: Exception) {
+                      handler.postDelayed({ listenAgain() }, 800)
                   }
               }
 
               private fun setFlash(enabled: Boolean) {
-
-                  try {
-
-                      cameraId?.let { id ->
-                          camera.setTorchMode(id, enabled)
-                      }
-
-                  } catch (_: Exception) {
-                  }
+                  try { cameraId?.let { camera.setTorchMode(it, enabled) } }
+                  catch (_: Exception) {}
               }
 
               private fun createNotification() {
-
                   val channelId = "voice_flashlight"
-
                   if (Build.VERSION.SDK_INT >= 26) {
-
-                      val channel =
-                          NotificationChannel(
-                              channelId,
-                              "Voice Flashlight",
-                              NotificationManager.IMPORTANCE_LOW
-                          )
-
-                      val manager =
-                          getSystemService(
-                              NotificationManager::class.java
-                          )
-
-                      manager.createNotificationChannel(channel)
+                      val channel = NotificationChannel(
+                          channelId, "Voice Flashlight",
+                          NotificationManager.IMPORTANCE_LOW
+                      )
+                      getSystemService(NotificationManager::class.java)
+                          .createNotificationChannel(channel)
                   }
 
-                  val notification =
-                      if (Build.VERSION.SDK_INT >= 26) {
-
-                          Notification.Builder(
-                              this,
-                              channelId
-                          )
-
-                      } else {
-
-                          Notification.Builder(this)
-
-                      }
-                          .setContentTitle("Voice Flashlight")
-                          .setContentText(
-                              "Listening for flashlight commands"
-                          )
-                          .setSmallIcon(
-                              android.R.drawable.ic_menu_camera
-                          )
-                          .setOngoing(true)
-                          .build()
+                  val notification = if (Build.VERSION.SDK_INT >= 26)
+                      Notification.Builder(this, channelId)
+                  else Notification.Builder(this)
 
                   startForeground(
                       1,
                       notification
+                          .setContentTitle("Voice Flashlight")
+                          .setContentText("Voice control is active")
+                          .setSmallIcon(android.R.drawable.ic_menu_camera)
+                          .setOngoing(true)
+                          .build()
                   )
               }
 
               override fun onDestroy() {
-
+                  handler.removeCallbacksAndMessages(null)
                   if (::speech.isInitialized) {
+                      speech.stopListening()
                       speech.destroy()
                   }
-
                   super.onDestroy()
               }
 
-              override fun onBind(
-                  intent: Intent?
-              ): IBinder? {
-                  return null
-              }
+              override fun onBind(intent: Intent?): IBinder? = null
           }
           EOF
 
-
       - name: Install Gradle
+        shell: bash
         run: |
+          set -e
           wget -q https://services.gradle.org/distributions/gradle-8.10.2-bin.zip
           unzip -q gradle-8.10.2-bin.zip
           echo "$PWD/gradle-8.10.2/bin" >> "$GITHUB_PATH"
 
-
       - name: Build APK
-        run: |
-          gradle assembleDebug
-
+        run: gradle --no-daemon assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: VoiceFlashlight-APK
+          name: VoiceFlashlight-v3
           path: app/build/outputs/apk/debug/app-debug.apk
