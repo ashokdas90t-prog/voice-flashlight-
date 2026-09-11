@@ -1,4 +1,4 @@
-name: Build Flashlight
+name: Build Flashlight Fullscreen Touch
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Create Flashlight Android project
+      - name: Create Android project
         shell: bash
         run: |
           set -e
@@ -61,8 +61,8 @@ jobs:
                   applicationId 'com.example.flashlight'
                   minSdk 23
                   targetSdk 35
-                  versionCode 1
-                  versionName '1.0'
+                  versionCode 2
+                  versionName '2.0'
               }
 
               compileOptions {
@@ -124,16 +124,19 @@ jobs:
           import android.hardware.camera2.CameraManager;
           import android.os.Bundle;
           import android.view.Gravity;
-          import android.view.ViewGroup;
-          import android.widget.CompoundButton;
+          import android.view.MotionEvent;
           import android.widget.LinearLayout;
-          import android.widget.Switch;
+          import android.widget.TextView;
 
           public class MainActivity extends Activity {
 
               private LinearLayout root;
-              private Switch flashlightSwitch;
+              private TextView label;
               private String cameraId;
+              private boolean flashlightOn = false;
+              private boolean permissionRequesting = false;
+
+              private final int YELLOW = Color.rgb(255, 235, 0);
 
               @Override
               protected void onCreate(Bundle savedInstanceState) {
@@ -144,46 +147,32 @@ jobs:
                   root.setGravity(Gravity.CENTER);
                   root.setBackgroundColor(Color.BLACK);
 
-                  flashlightSwitch = new Switch(this);
-                  flashlightSwitch.setText("FLASHLIGHT");
-                  flashlightSwitch.setTextOn("ON");
-                  flashlightSwitch.setTextOff("OFF");
-                  flashlightSwitch.setTextColor(Color.WHITE);
-                  flashlightSwitch.setTextSize(24);
-                  flashlightSwitch.setGravity(Gravity.CENTER);
-                  flashlightSwitch.setPadding(24, 20, 24, 20);
-                  flashlightSwitch.setShowText(true);
-                  flashlightSwitch.setBackgroundColor(Color.TRANSPARENT);
+                  label = new TextView(this);
+                  label.setText("FLASHLIGHT\nOFF");
+                  label.setTextColor(Color.WHITE);
+                  label.setTextSize(28);
+                  label.setGravity(Gravity.CENTER);
+                  label.setTypeface(null, 1);
+                  label.setPadding(40, 40, 40, 40);
 
-                  LinearLayout.LayoutParams params =
+                  root.addView(label,
                           new LinearLayout.LayoutParams(
-                                  ViewGroup.LayoutParams.WRAP_CONTENT,
-                                  ViewGroup.LayoutParams.WRAP_CONTENT);
+                                  LinearLayout.LayoutParams.MATCH_PARENT,
+                                  LinearLayout.LayoutParams.MATCH_PARENT));
 
-                  root.addView(flashlightSwitch, params);
                   setContentView(root);
-
                   findFlashlight();
 
-                  flashlightSwitch.setOnCheckedChangeListener(
-                          new CompoundButton.OnCheckedChangeListener() {
-                              @Override
-                              public void onCheckedChanged(
-                                      CompoundButton buttonView, boolean isChecked) {
-
-                                  if (checkSelfPermission(Manifest.permission.CAMERA)
-                                          != PackageManager.PERMISSION_GRANTED) {
-                                      requestPermissions(
-                                              new String[]{Manifest.permission.CAMERA}, 10);
-                                      return;
-                                  }
-
-                                  setFlashlight(isChecked);
-                              }
-                          });
+                  root.setOnTouchListener((v, event) -> {
+                      if (event.getAction() == MotionEvent.ACTION_UP) {
+                          toggleFlashlight();
+                      }
+                      return true;
+                  });
 
                   if (checkSelfPermission(Manifest.permission.CAMERA)
                           != PackageManager.PERMISSION_GRANTED) {
+                      permissionRequesting = true;
                       requestPermissions(
                               new String[]{Manifest.permission.CAMERA}, 10);
                   }
@@ -208,28 +197,48 @@ jobs:
                   }
               }
 
+              private void toggleFlashlight() {
+                  if (checkSelfPermission(Manifest.permission.CAMERA)
+                          != PackageManager.PERMISSION_GRANTED) {
+                      requestPermissions(
+                              new String[]{Manifest.permission.CAMERA}, 10);
+                      return;
+                  }
+
+                  setFlashlight(!flashlightOn);
+              }
+
               private void setFlashlight(boolean on) {
                   try {
                       if (cameraId == null) {
                           findFlashlight();
                       }
 
-                      if (cameraId != null) {
-                          CameraManager manager =
-                                  (CameraManager) getSystemService(CAMERA_SERVICE);
-                          manager.setTorchMode(cameraId, on);
+                      if (cameraId == null) {
+                          return;
                       }
 
-                      // ON = yellow background, OFF = black background.
-                      root.setBackgroundColor(on ? Color.rgb(255, 235, 0) : Color.BLACK);
+                      CameraManager manager =
+                              (CameraManager) getSystemService(CAMERA_SERVICE);
 
-                      // ON = black text on the bright yellow background.
-                      // OFF = white text on the black background.
-                      flashlightSwitch.setTextColor(on ? Color.BLACK : Color.WHITE);
+                      manager.setTorchMode(cameraId, on);
+                      flashlightOn = on;
+
+                      if (on) {
+                          root.setBackgroundColor(YELLOW);
+                          label.setText("FLASHLIGHT\nON");
+                          label.setTextColor(Color.BLACK);
+                      } else {
+                          root.setBackgroundColor(Color.BLACK);
+                          label.setText("FLASHLIGHT\nOFF");
+                          label.setTextColor(Color.WHITE);
+                      }
 
                   } catch (Exception ignored) {
-                      flashlightSwitch.setChecked(false);
+                      flashlightOn = false;
                       root.setBackgroundColor(Color.BLACK);
+                      label.setText("FLASHLIGHT\nOFF");
+                      label.setTextColor(Color.WHITE);
                   }
               }
 
@@ -246,17 +255,24 @@ jobs:
                       grantResults.length > 0 &&
                       grantResults[0] == PackageManager.PERMISSION_GRANTED) {
 
-                      setFlashlight(flashlightSwitch.isChecked());
+                      permissionRequesting = false;
                   } else {
-                      flashlightSwitch.setChecked(false);
+                      permissionRequesting = false;
+                      flashlightOn = false;
                       root.setBackgroundColor(Color.BLACK);
+                      label.setText("FLASHLIGHT\nOFF");
+                      label.setTextColor(Color.WHITE);
                   }
               }
 
               @Override
               protected void onDestroy() {
                   try {
-                      setFlashlight(false);
+                      if (flashlightOn && cameraId != null) {
+                          CameraManager manager =
+                                  (CameraManager) getSystemService(CAMERA_SERVICE);
+                          manager.setTorchMode(cameraId, false);
+                      }
                   } catch (Exception ignored) {
                   }
                   super.onDestroy();
@@ -278,5 +294,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Flashlight-ON-OFF
+          name: Flashlight-Fullscreen-Touch
           path: app/build/outputs/apk/debug/app-debug.apk
