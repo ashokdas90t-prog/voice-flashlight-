@@ -221,10 +221,11 @@ jobs:
                       }
 
                       // ON = yellow background, OFF = black background.
-                      root.setBackgroundColor(on ? Color.YELLOW : Color.BLACK);
+                      root.setBackgroundColor(on ? Color.rgb(255, 235, 0) : Color.BLACK);
 
-                      // Keep the switch text white.
-                      flashlightSwitch.setTextColor(Color.WHITE);
+                      // ON = black text on the bright yellow background.
+                      // OFF = white text on the black background.
+                      flashlightSwitch.setTextColor(on ? Color.BLACK : Color.WHITE);
 
                   } catch (Exception ignored) {
                       flashlightSwitch.setChecked(false);
